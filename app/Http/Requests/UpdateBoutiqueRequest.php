@@ -110,15 +110,29 @@ class UpdateBoutiqueRequest extends FormRequest
             'contacts' => 'nullable|array',
             'contacts.*' => [
                 'string',
+                'different:telephone',
                 $phoneValidation
             ],
             'description' => 'nullable|string',
             'logo_url' => 'nullable|string',
             'horaires' => 'nullable|array',
-            'categorie_id' => 'nullable|exists:categories,id',
+            'categories' => 'sometimes|array',
+            'categories.*' => 'exists:categories,id',
             'localisation' => 'nullable|string',
             'latitude' => 'nullable|numeric',
             'longitude' => 'nullable|numeric',
+        ];
+    }
+
+    /**
+     * Get custom messages for validator errors.
+     *
+     * @return array
+     */
+    public function messages()
+    {
+        return [
+            'contacts.*.different' => 'Le numéro secondaire ne peut pas être identique au numéro principal.',
         ];
     }
 }

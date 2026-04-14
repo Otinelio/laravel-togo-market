@@ -44,4 +44,9 @@ class Boutique extends Model
     {
         return $this->hasMany(Produit::class);
     }
+
+    public function categories()
+    {
+        return $this->belongsToMany(Category::class);
+    }
 }

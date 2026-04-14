@@ -23,7 +23,7 @@ class BoutiqueController extends Controller
             return response()->json(['message' => 'Aucune boutique trouvée pour cet utilisateur.'], 404);
         }
 
-        return response()->json($boutique);
+        return response()->json($boutique->load('categories'));
     }
 
     /**
@@ -43,10 +43,11 @@ class BoutiqueController extends Controller
         $validated['user_id'] = $user->id;
 
         $boutique = Boutique::create($validated);
+        $boutique->categories()->attach($request->categories);
 
         return response()->json([
             'message' => 'Boutique créée avec succès',
-            'boutique' => $boutique
+            'boutique' => $boutique->load('categories')
         ], 201);
     }
 
@@ -69,9 +70,13 @@ class BoutiqueController extends Controller
 
         $boutique->update($validated);
 
+        if ($request->has('categories')) {
+            $boutique->categories()->sync($request->categories);
+        }
+
         return response()->json([
             'message' => 'Boutique mise à jour avec succès',
-            'boutique' => $boutique
+            'boutique' => $boutique->load('categories')
         ]);
     }
     
@@ -80,6 +85,6 @@ class BoutiqueController extends Controller
      */
     public function show(Boutique $boutique)
     {
-        return response()->json($boutique->load('produits'));
+        return response()->json($boutique->load(['produits', 'categories']));
     }
 }

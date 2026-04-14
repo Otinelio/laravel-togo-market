@@ -99,6 +99,7 @@ class StoreBoutiqueRequest extends FormRequest
             'contacts' => 'nullable|array',
             'contacts.*' => [
                 'string',
+                'different:telephone',
                 $phoneValidation
             ],
             'description' => 'nullable|string',
@@ -107,6 +108,20 @@ class StoreBoutiqueRequest extends FormRequest
             'localisation' => 'nullable|string',
             'latitude' => 'nullable|numeric',
             'longitude' => 'nullable|numeric',
+            'categories' => 'required|array',
+            'categories.*' => 'exists:categories,id',
+        ];
+    }
+
+    /**
+     * Get custom messages for validator errors.
+     *
+     * @return array
+     */
+    public function messages()
+    {
+        return [
+            'contacts.*.different' => 'Le numéro secondaire ne peut pas être identique au numéro principal.',
         ];
     }
 }
