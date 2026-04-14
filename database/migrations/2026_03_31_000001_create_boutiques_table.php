@@ -10,7 +10,7 @@ return new class extends Migration
     {
         Schema::create('boutiques', function (Blueprint $table) {
             $table->id();
-            $table->foreignId('user_id')->constrained('users')->onDelete('cascade');
+            $table->foreignId('user_id')->unique()->constrained('users')->onDelete('cascade');
             $table->string('nom');
             $table->string('slug')->unique();
             $table->text('description')->nullable();
@@ -20,6 +20,8 @@ return new class extends Migration
             $table->decimal('latitude', 10, 8)->nullable();
             $table->decimal('longitude', 11, 8)->nullable();
             $table->decimal('note_moyenne', 3, 2)->nullable();
+            $table->json('contacts')->nullable();
+            $table->json('horaires')->nullable();
             $table->string('temps_reponse')->nullable();
             $table->enum('statut', ['en_attente', 'approuve', 'suspendu'])->default('en_attente');
             $table->timestamps();

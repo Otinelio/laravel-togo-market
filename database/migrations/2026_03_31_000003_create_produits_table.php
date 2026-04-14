@@ -18,6 +18,7 @@ return new class extends Migration
             $table->enum('etat', ['Neuf', 'Occasion']);
             $table->string('localisation')->nullable();
             $table->json('variations_possibles')->nullable();
+            $table->integer('stock')->default(0);
             $table->enum('statut', ['actif', 'reserve', 'vendu'])->default('actif');
             $table->timestamps();
             $table->softDeletes();

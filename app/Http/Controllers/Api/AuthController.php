@@ -16,7 +16,7 @@ class AuthController extends Controller
             'telephone' => [
                 'required',
                 'string',
-                'regex:/^(\+228)(90|91|92|93|96|97|98|99|70|71)[0-9]{6}$/', // Vérification numéro togolais
+                'regex:/^(\+228)(90|91|92|93|96|97|98|99|70|71|79)[0-9]{6}$/', // Vérification numéro togolais
                 'unique:users,telephone',
             ],
         ], [
@@ -35,7 +35,7 @@ class AuthController extends Controller
             'telephone' => [
                 'required',
                 'string',
-                'regex:/^(\+228)[0-9]{8}$/',
+                'regex:/^(\+228)(90|91|92|93|96|97|98|99|70|71|79)[0-9]{6}$/',
                 'unique:users,telephone',
             ],
             'password' => 'required|string|min:6',
@@ -170,6 +170,12 @@ class AuthController extends Controller
 
         $request->validate([
             'nom' => 'required|string|max:255',
+            'telephone' => [
+                'nullable',
+                'string',
+                'regex:/^(\+228)(90|91|92|93|96|97|98|99|70|71|79)[0-9]{6}$/',
+                'unique:users,telephone,' . $user->id,
+            ],
             'categories' => 'nullable|array',
             'categories.*' => 'exists:categories,id',
             'quartier_id' => 'nullable|exists:quartiers,id',
@@ -178,10 +184,16 @@ class AuthController extends Controller
             'longitude' => 'nullable|numeric',
         ]);
 
-        // Mise à jour du nom
-        $user->update([
+        $updateData = [
             'nom' => $request->nom,
-        ]);
+        ];
+
+        if ($request->filled('telephone')) {
+            $updateData['telephone'] = $request->telephone;
+        }
+
+        // Mise à jour des informations de base
+        $user->update($updateData);
 
         // Synchronisation des préférences (catégories)
         if ($request->has('categories')) {

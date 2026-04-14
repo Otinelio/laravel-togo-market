@@ -38,4 +38,9 @@ class User extends Authenticatable
     {
         return $this->belongsToMany(Category::class);
     }
+
+    public function boutique()
+    {
+        return $this->hasOne(Boutique::class);
+    }
 }
