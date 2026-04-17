@@ -182,6 +182,7 @@ class AuthController extends Controller
             'details' => 'nullable|string',
             'latitude' => 'nullable|numeric',
             'longitude' => 'nullable|numeric',
+            'photo' => 'nullable|image|mimes:jpeg,png,jpg,webp|max:5120',
         ]);
 
         $updateData = [
@@ -190,6 +191,11 @@ class AuthController extends Controller
 
         if ($request->filled('telephone')) {
             $updateData['telephone'] = $request->telephone;
+        }
+
+        if ($request->hasFile('photo')) {
+            $path = $request->file('photo')->store('profiles', 'public');
+            $updateData['avatar_url'] = \Illuminate\Support\Facades\Storage::url($path);
         }
 
         // Mise à jour des informations de base

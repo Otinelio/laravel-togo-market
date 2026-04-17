@@ -42,6 +42,16 @@ class BoutiqueController extends Controller
         $validated['slug'] = Str::slug($validated['nom']) . '-' . uniqid();
         $validated['user_id'] = $user->id;
 
+        if ($request->hasFile('logo')) {
+            $path = $request->file('logo')->store('boutiques', 'public');
+            $validated['logo_url'] = \Illuminate\Support\Facades\Storage::url($path);
+        }
+
+        if ($request->hasFile('banner')) {
+            $path = $request->file('banner')->store('boutiques', 'public');
+            $validated['banner_url'] = \Illuminate\Support\Facades\Storage::url($path);
+        }
+
         $boutique = Boutique::create($validated);
         $boutique->categories()->attach($request->categories);
 
@@ -66,6 +76,16 @@ class BoutiqueController extends Controller
 
         if (isset($validated['nom'])) {
             $validated['slug'] = Str::slug($validated['nom']) . '-' . uniqid();
+        }
+
+        if ($request->hasFile('logo')) {
+            $path = $request->file('logo')->store('boutiques', 'public');
+            $validated['logo_url'] = \Illuminate\Support\Facades\Storage::url($path);
+        }
+
+        if ($request->hasFile('banner')) {
+            $path = $request->file('banner')->store('boutiques', 'public');
+            $validated['banner_url'] = \Illuminate\Support\Facades\Storage::url($path);
         }
 
         $boutique->update($validated);

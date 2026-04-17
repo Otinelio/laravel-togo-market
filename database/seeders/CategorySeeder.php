@@ -13,14 +13,14 @@ class CategorySeeder extends Seeder
     public function run(): void
     {
         $categories = [
-            ['nom' => 'Mode', 'emoji' => '👗'],
-            ['nom' => 'Beauté & Santé', 'emoji' => '💄'],
-            ['nom' => 'Électronique', 'emoji' => '📱'],
-            ['nom' => 'Alimentation', 'emoji' => '🍔'],
-            ['nom' => 'Maison & Décoration', 'emoji' => '🏠'],
-            ['nom' => 'Immobilier', 'emoji' => '🏢'],
-            ['nom' => 'Véhicules', 'emoji' => '🚗'],
-            ['nom' => 'Services', 'emoji' => '💼'],
+            ['nom' => 'Mode'],
+            ['nom' => 'Beauté & Santé'],
+            ['nom' => 'Électronique'],
+            ['nom' => 'Alimentation'],
+            ['nom' => 'Maison & Décoration'],
+            ['nom' => 'Immobilier'],
+            ['nom' => 'Véhicules'],
+            ['nom' => 'Services'],
         ];
 
         foreach ($categories as $cat) {
@@ -28,7 +28,6 @@ class CategorySeeder extends Seeder
                 ['slug' => Str::slug($cat['nom'])],
                 [
                     'nom' => $cat['nom'],
-                    'emoji' => $cat['emoji'],
                 ]
             );
         }

@@ -103,7 +103,8 @@ class StoreBoutiqueRequest extends FormRequest
                 $phoneValidation
             ],
             'description' => 'nullable|string',
-            'logo_url' => 'nullable|string',
+            'logo' => 'nullable|image|mimes:jpeg,png,jpg,webp|max:5120',
+            'banner' => 'nullable|image|mimes:jpeg,png,jpg,webp|max:5120',
             'horaires' => 'nullable|array',
             'localisation' => 'nullable|string',
             'latitude' => 'nullable|numeric',

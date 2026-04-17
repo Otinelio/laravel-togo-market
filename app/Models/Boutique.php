@@ -16,6 +16,7 @@ class Boutique extends Model
         'slug',
         'description',
         'logo_url',
+        'banner_url',
         'adresse',
         'details_adresse',
         'localisation',

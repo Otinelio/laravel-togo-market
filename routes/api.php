@@ -36,6 +36,8 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::delete('/produits/{produit}', [ProduitController::class, 'destroy']);
     
     Route::get('/user', function (Request $request) {
-        return $request->user();
+        return response()->json([
+            'user' => $request->user()->load(['categories', 'adresses'])
+        ]);
     });
 });

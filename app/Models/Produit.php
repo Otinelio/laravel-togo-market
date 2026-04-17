@@ -19,6 +19,7 @@ class Produit extends Model
         'etat',
         'localisation',
         'variations_possibles',
+        'prix_negociable',
         'stock',
         'statut'
     ];
@@ -36,5 +37,10 @@ class Produit extends Model
     public function categorie()
     {
         return $this->belongsTo(Category::class);
+    }
+
+    public function images()
+    {
+        return $this->hasMany(ImageProduit::class);
     }
 }

@@ -6,7 +6,7 @@ use Illuminate\Database\Eloquent\Model;
 
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 
-#[Fillable(['parent_id', 'nom', 'slug', 'emoji'])]
+#[Fillable(['parent_id', 'nom', 'slug'])]
 class Category extends Model
 {
     public function users()
