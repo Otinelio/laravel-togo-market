@@ -70,6 +70,11 @@ class StoreBoutiqueRequest extends FormRequest
     public function rules()
     {
         $phoneValidation = function ($attribute, $value, $fail) {
+            if (!preg_match('/^\+228(90|91|92|93|96|97|98|99|70|71|79)\d{6}$/', $value)) {
+                $fail("Le numéro $value n'est pas un numéro togolais valide.");
+                return;
+            }
+
             $exists = DB::table('boutiques')
                 ->where(function($q) use ($value) {
                     $q->where('telephone', $value)
@@ -78,11 +83,7 @@ class StoreBoutiqueRequest extends FormRequest
                 ->exists();
 
             if ($exists) {
-                if (str_starts_with($attribute, 'contacts.')) {
-                    $fail('Ce contact secondaire est déjà enregistré par une autre boutique.');
-                } else {
-                    $fail('Ce numéro de téléphone est déjà pris par une autre boutique.');
-                }
+                $fail("Le numéro $value est déjà utilisé par une autre boutique.");
             }
         };
 

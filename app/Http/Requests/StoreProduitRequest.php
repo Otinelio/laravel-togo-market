@@ -2,6 +2,7 @@
 
 namespace App\Http\Requests;
 
+use App\Support\ProductCategoryAllowedForBoutique;
 use Illuminate\Contracts\Validation\ValidationRule;
 use Illuminate\Foundation\Http\FormRequest;
 
@@ -24,7 +25,19 @@ class StoreProduitRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'categorie_id' => 'required|exists:categories,id',
+            'categorie_id' => [
+                'required',
+                'exists:categories,id',
+                function (string $attribute, mixed $value, \Closure $fail): void {
+                    if ($this->input('publish_as') === 'particulier') {
+                        return; // Les particuliers peuvent choisir toutes les catégories
+                    }
+                    $boutique = $this->user()?->boutique;
+                    if (! \App\Support\ProductCategoryAllowedForBoutique::check($boutique, (int) $value)) {
+                        $fail('La catégorie choisie n’est pas parmi celles autorisées pour votre boutique.');
+                    }
+                },
+            ],
             'titre' => 'required|string|max:255',
             'description' => 'required|string',
             'prix' => 'required|numeric|min:0',

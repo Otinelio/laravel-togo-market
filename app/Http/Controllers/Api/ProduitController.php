@@ -9,16 +9,107 @@ use App\Models\ImageProduit;
 use App\Http\Requests\StoreProduitRequest;
 use App\Http\Requests\UpdateProduitRequest;
 use Illuminate\Http\Request;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Storage;
 
 class ProduitController extends Controller
 {
+    private const TRENDING_HOME_LIMIT = 10;
+
+    private const TRENDING_PER_PAGE_DEFAULT = 20;
+
+    private const TRENDING_PER_PAGE_MAX = 50;
+
     /**
-     * Liste publique des produits
+     * Liste publique des produits (paginée).
+     * Si l'utilisateur est authentifié, le champ is_favoris est inclus.
      */
     public function index()
     {
-        return response()->json(Produit::with(['boutique', 'categorie', 'images'])->latest()->paginate(20));
+        $produits = Produit::with(['boutique', 'categorie', 'images', 'user'])
+            ->where('statut', 'actif')
+            ->latest()
+            ->paginate(20);
+
+        // Ajouter is_favoris pour chaque produit si user est connecté
+        if (auth()->check()) {
+            $userId = auth()->id();
+            $produits->getCollection()->transform(function ($produit) use ($userId) {
+                $produit->setAttribute('is_favoris', $produit->favoris()->where('user_id', $userId)->exists());
+                return $produit;
+            });
+        }
+
+        return response()->json($produits);
+    }
+
+    /**
+     * Aperçu tendances (page d'accueil) : les 10 premiers produits actifs par score cumulé.
+     */
+    public function trendingHome()
+    {
+        $produits = Produit::trendingScore()
+            ->with(['boutique', 'categorie', 'images', 'user'])
+            ->limit(self::TRENDING_HOME_LIMIT)
+            ->get();
+
+        $this->attachTrendingFavorisFlag($produits);
+
+        return response()->json($produits);
+    }
+
+    /**
+     * Liste tendances complète, pagination serveur (même ordre que l'aperçu).
+     */
+    public function trendingPaginated(Request $request)
+    {
+        $perPage = (int) $request->query('per_page', self::TRENDING_PER_PAGE_DEFAULT);
+        $perPage = max(1, min($perPage, self::TRENDING_PER_PAGE_MAX));
+
+        $produits = Produit::trendingScore()
+            ->with(['boutique', 'categorie', 'images', 'user'])
+            ->paginate($perPage);
+
+        $this->attachTrendingFavorisFlag($produits->getCollection());
+
+        return response()->json($produits);
+    }
+
+    /**
+     * @param  Collection<int, \App\Models\Produit>  $produits
+     */
+    private function attachTrendingFavorisFlag(Collection $produits): void
+    {
+        if (! auth()->check()) {
+            return;
+        }
+
+        $userId = auth()->id();
+        $produits->transform(function (Produit $produit) use ($userId) {
+            $produit->setAttribute(
+                'is_favoris',
+                $produit->favoris()->where('user_id', $userId)->exists()
+            );
+
+            return $produit;
+        });
+    }
+
+    /**
+     * Route publique : Produits d'une zone géographique (filtrage texte)
+     */
+    public function byZone(Request $request)
+    {
+        $request->validate(['zone' => 'required|string|min:2']);
+        $zone = $request->input('zone');
+
+        $produits = Produit::byZone($zone)
+            ->with(['boutique', 'categorie', 'images', 'user'])
+            ->where('statut', 'actif')
+            ->latest()
+            ->paginate(20);
+
+        return response()->json($produits);
     }
 
     /**
@@ -26,14 +117,19 @@ class ProduitController extends Controller
      */
     public function store(StoreProduitRequest $request)
     {
-        $boutique = $request->user()->boutique;
-
-        if (!$boutique) {
-            return response()->json(['message' => 'Vous ne possédez pas de boutique pour ajouter des produits.'], 403);
-        }
-
+        $publishAs = $request->input('publish_as', 'boutique'); // 'boutique' or 'particulier'
         $validated = $request->validated();
-        $validated['boutique_id'] = $boutique->id;
+        $validated['user_id'] = $request->user()->id;
+
+        if ($publishAs === 'boutique') {
+            $boutique = $request->user()->boutique;
+            if (!$boutique) {
+                return response()->json(['message' => 'Vous ne possédez pas de boutique pour ajouter des produits.'], 403);
+            }
+            $validated['boutique_id'] = $boutique->id;
+        } else {
+            $validated['boutique_id'] = null;
+        }
 
         if (!isset($validated['stock'])) {
             $validated['stock'] = 0;
@@ -45,9 +141,9 @@ class ProduitController extends Controller
             foreach ($request->file('images') as $index => $file) {
                 $path = $file->store('produits', 'public');
                 ImageProduit::create([
-                    'produit_id' => $produit->id,
-                    'chemin_image' => $path,
-                    'is_principale' => $index === 0, // Première image comme principale
+                    'produit_id'    => $produit->id,
+                    'chemin_image'  => $path,
+                    'is_principale' => $index === 0,
                 ]);
             }
         }
@@ -59,11 +155,21 @@ class ProduitController extends Controller
     }
 
     /**
-     * Route publique : Afficher un produit spécifique
+     * Route publique : Afficher un produit spécifique + incrémenter vues
      */
     public function show(Produit $produit)
     {
-        return response()->json($produit->load(['boutique', 'categorie', 'images']));
+        // Incrémenter le compteur de vues (atomic pour éviter race conditions)
+        $produit->increment('vues');
+
+        $produit->load(['boutique', 'categorie', 'images', 'user']);
+
+        // Ajouter is_favoris si connecté
+        if (auth()->check()) {
+            $produit->setAttribute('is_favoris', $produit->favoris()->where('user_id', auth()->id())->exists());
+        }
+
+        return response()->json($produit);
     }
 
     /**
@@ -71,7 +177,7 @@ class ProduitController extends Controller
      */
     public function update(UpdateProduitRequest $request, Produit $produit)
     {
-        if ($produit->boutique->user_id !== $request->user()->id) {
+        if ($produit->user_id !== $request->user()->id) {
             return response()->json(['message' => 'Non autorisé. Ce produit ne vous appartient pas.'], 403);
         }
 
@@ -81,7 +187,7 @@ class ProduitController extends Controller
         // Supprimer les images qui ne sont pas dans 'images_a_garder'
         $imagesAGarder = $request->input('images_a_garder', []);
         $imagesASupprimer = $produit->images()->whereNotIn('id', $imagesAGarder)->get();
-        
+
         foreach ($imagesASupprimer as $image) {
             if (Storage::disk('public')->exists($image->chemin_image)) {
                 Storage::disk('public')->delete($image->chemin_image);
@@ -94,8 +200,8 @@ class ProduitController extends Controller
             foreach ($request->file('nouvelles_images') as $file) {
                 $path = $file->store('produits', 'public');
                 ImageProduit::create([
-                    'produit_id' => $produit->id,
-                    'chemin_image' => $path,
+                    'produit_id'    => $produit->id,
+                    'chemin_image'  => $path,
                     'is_principale' => false,
                 ]);
             }
@@ -121,30 +227,42 @@ class ProduitController extends Controller
      */
     public function destroy(Request $request, Produit $produit)
     {
-        if ($produit->boutique->user_id !== $request->user()->id) {
+        if ($produit->user_id !== $request->user()->id) {
             return response()->json(['message' => 'Non autorisé.'], 403);
         }
 
-        // Si on fait du soft delete (par défaut sur le modèle Produit), 
-        // on ne supprime pas forcément les images physiquement.
-        // Si on souhaite supprimer les images physiquement, on décommente :
-        // foreach ($produit->images as $image) {
-        //     Storage::disk('public')->delete($image->chemin_image);
-        // }
-        // $produit->images()->delete();
-
         $produit->delete();
 
-        return response()->json([
-            'message' => 'Produit supprimé avec succès'
-        ]);
+        return response()->json(['message' => 'Produit supprimé avec succès']);
     }
-    
+
     /**
      * Route publique : Récupérer tous les produits d'une boutique
      */
     public function getByBoutique(Boutique $boutique)
     {
-        return response()->json($boutique->produits()->with(['images', 'categorie'])->latest()->paginate(20));
+        return response()->json(
+            $boutique->produits()->with(['images', 'categorie', 'user'])->latest()->paginate(20)
+        );
+    }
+
+    /**
+     * Route protégée : Récupérer les produits personnels de l'utilisateur connecté
+     */
+    public function mesProduits(Request $request)
+    {
+        return response()->json(
+            $request->user()->annonces_personnelles()->with(['images', 'categorie', 'user'])->latest()->paginate(20)
+        );
+    }
+
+    /**
+     * Route publique : Récupérer les produits personnels d'un utilisateur spécifique
+     */
+    public function getByUser(\App\Models\User $user)
+    {
+        return response()->json(
+            $user->annonces_personnelles()->with(['images', 'categorie', 'user'])->latest()->paginate(20)
+        );
     }
 }

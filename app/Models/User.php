@@ -43,4 +43,14 @@ class User extends Authenticatable
     {
         return $this->hasOne(Boutique::class);
     }
+
+    public function produits()
+    {
+        return $this->hasMany(Produit::class);
+    }
+
+    public function annonces_personnelles()
+    {
+        return $this->hasMany(Produit::class)->whereNull('boutique_id');
+    }
 }

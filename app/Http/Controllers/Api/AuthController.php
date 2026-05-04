@@ -12,12 +12,15 @@ class AuthController extends Controller
 {
     public function verifyPhone(Request $request)
     {
+        $userId = auth('sanctum')->id();
+        $uniqueRule = $userId ? "unique:users,telephone,{$userId}" : "unique:users,telephone";
+
         $request->validate([
             'telephone' => [
                 'required',
                 'string',
                 'regex:/^(\+228)(90|91|92|93|96|97|98|99|70|71|79)[0-9]{6}$/', // Vérification numéro togolais
-                'unique:users,telephone',
+                $uniqueRule,
             ],
         ], [
             'telephone.regex' => 'Le numéro doit être un numéro mobile togolais valide (ex: +22890000000).',
@@ -26,6 +29,27 @@ class AuthController extends Controller
 
         return response()->json([
             'message' => 'Numéro valide et disponible.'
+        ]);
+    }
+
+    public function verifyEmail(Request $request)
+    {
+        $userId = auth('sanctum')->id();
+        $uniqueRule = $userId ? "unique:users,email,{$userId}" : "unique:users,email";
+
+        $request->validate([
+            'email' => [
+                'required',
+                'email',
+                $uniqueRule,
+            ],
+        ], [
+            'email.email' => 'Veuillez fournir une adresse email valide.',
+            'email.unique' => 'Cet email est déjà utilisé.',
+        ]);
+
+        return response()->json([
+            'message' => 'Email valide et disponible.'
         ]);
     }
 
@@ -49,7 +73,7 @@ class AuthController extends Controller
         $token = $user->createToken('auth_token')->plainTextToken;
 
         return response()->json([
-            'user' => $user,
+            'user' => $user->load(['categories', 'adresses']),
             'token' => $token,
         ], 201);
     }
@@ -72,7 +96,7 @@ class AuthController extends Controller
         $token = $user->createToken('auth_token')->plainTextToken;
 
         return response()->json([
-            'user' => $user,
+            'user' => $user->load(['categories', 'adresses']),
             'token' => $token,
         ]);
     }
@@ -92,6 +116,7 @@ class AuthController extends Controller
             'provider' => 'required|in:google,facebook,apple',
             'token' => 'required|string',
             'nom' => 'nullable|string',
+            'email' => 'nullable|email',
             'telephone' => 'nullable|string|unique:users,telephone',
         ]);
 
@@ -119,17 +144,23 @@ class AuthController extends Controller
 
             $user = User::create([
                 'nom' => $nom,
+                'email' => $request->email,
                 'telephone' => $telephone,
                 'provider_name' => $provider,
                 'provider_id' => $providerId,
                 'password' => null,
             ]);
+        } else {
+            // Mettre à jour l'email s'il n'existait pas
+            if (!$user->email && $request->email) {
+                $user->update(['email' => $request->email]);
+            }
         }
 
         $authToken = $user->createToken('auth_token')->plainTextToken;
 
         return response()->json([
-            'user' => $user,
+            'user' => $user->load(['categories', 'adresses']),
             'token' => $authToken,
         ]);
     }
@@ -169,7 +200,8 @@ class AuthController extends Controller
         $user = $request->user();
 
         $request->validate([
-            'nom' => 'required|string|max:255',
+            'nom' => 'nullable|string|max:255',
+            'email' => 'nullable|email|unique:users,email,' . $user->id,
             'telephone' => [
                 'nullable',
                 'string',
@@ -185,9 +217,15 @@ class AuthController extends Controller
             'photo' => 'nullable|image|mimes:jpeg,png,jpg,webp|max:5120',
         ]);
 
-        $updateData = [
-            'nom' => $request->nom,
-        ];
+        $updateData = [];
+
+        if ($request->filled('nom')) {
+            $updateData['nom'] = $request->nom;
+        }
+
+        if ($request->has('email')) {
+            $updateData['email'] = $request->email;
+        }
 
         if ($request->filled('telephone')) {
             $updateData['telephone'] = $request->telephone;
